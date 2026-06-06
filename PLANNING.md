@@ -63,18 +63,49 @@ corrections happen while coding, and over time, whether that rate changes.
 ## v1 Build Order
 - [ ] **1. Scaffolding** — `pyproject.toml` (Python 3.12+, pynput), package layout under
   `src/backspace_tracker/`, `.gitignore`, README stub
+  - Test: `pip install -e .` succeeds; `python -c "import backspace_tracker"` works
+  - Test: `python -m backspace_tracker` starts without error (and exits cleanly)
 - [ ] **2. Counter core** (`counter.py`) — `Category` enum, `Counter` class with tallies,
   timestamps, derived stats (duration, corrections/min, correction ratio). Pure logic,
   zero I/O, unit tests alongside
+  - Test: fresh counter → all tallies zero, ratio/rate are 0 (no ZeroDivisionError)
+  - Test: recording N events per category → each tally exactly N
+  - Test: correction ratio = correction keys ÷ total keystrokes (corrections included
+    in the total)
+  - Test: corrections/minute computed from session duration (known timestamps in,
+    known rate out)
+  - Test: zero-duration session → rate is 0, not a crash
 - [ ] **3. Event classification** (`listener.py`, logic half) — (key, modifier state) →
-  `Category` mapping, modifier tracking. Tested with synthetic events; key cases:
-  Ctrl+Backspace → counted, Ctrl+Shift+Backspace → toggle (never counted)
+  `Category` mapping, modifier tracking. Tested with synthetic events
+  - Test: Backspace → `BACKSPACE`; Delete → `DELETE`; letter/other key → `OTHER`
+  - Test: Ctrl+Backspace → `CTRL_BACKSPACE`; Ctrl+Delete → `CTRL_DELETE`;
+    Ctrl+Z → `CTRL_Z`
+  - Test: Ctrl+**Shift**+Backspace → toggle signal, **never counted** in any category
+  - Test: Ctrl+Shift+Z (redo) → `OTHER`, not `CTRL_Z`
+  - Test: left and right Ctrl both register as Ctrl held
+  - Test: modifier release tracked — Backspace *after* Ctrl released → `BACKSPACE`,
+    not `CTRL_BACKSPACE`
+  - Test: repeated Backspace events (key held) → one count per event
 - [ ] **4. Live wiring** — real `pynput.Listener`, hotkey toggles idle ↔ recording,
   Ctrl+C clean exit
+  - Test (mocked callbacks): events while **idle** count nothing
+  - Test (mocked callbacks): hotkey → recording starts; hotkey again → session stops
+    and stats are finalized
+  - Test (mocked callbacks): hotkey press itself adds nothing to the new session's
+    counts
+  - Test: Ctrl+C while recording → session finalized, listener stopped, clean exit
 - [ ] **5. Reporter** (`reporter.py`) — live in-place status line while recording,
   summary table on session stop
-- [ ] **6. End-to-end smoke test** — toggle on, type across apps, hold Backspace,
-  Ctrl+Z, toggle off; verify summary matches actual usage
+  - Test: status line contains all correction tallies, total, and rate
+  - Test: summary includes every category, duration, corrections/min, correction ratio
+  - Test: zero-activity session renders sane output (0s and 0%, no crash)
+  - Test: duration formatting (e.g., 61s → `1m 01s`)
+- [ ] **6. End-to-end smoke test** (manual) — verify the real hook against known input
+  - Type 10 Backspaces in another app → summary shows exactly 10
+  - Hold Backspace ~2s → count visibly exceeds 10 (repeats counted)
+  - Press Ctrl+Backspace, Ctrl+Z → each lands in its own category
+  - Type while idle (before first toggle / after stop) → nothing counted
+  - Toggle across two sessions → second session starts from zero
 
 ## Decisions
 - **Hotkey**: Ctrl+Shift+Backspace toggles recording. The app launches idle; the hotkey
