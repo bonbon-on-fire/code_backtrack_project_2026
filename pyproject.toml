@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "backspace-tracker"
+version = "0.1.0"
+description = "Counts correction keystrokes (Backspace, Delete, Ctrl+Z) while you code - a counter, not a keylogger"
+requires-python = ">=3.12"
+dependencies = [
+    "pynput>=1.7.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+]
+
+[project.scripts]
+backspace-tracker = "backspace_tracker.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
