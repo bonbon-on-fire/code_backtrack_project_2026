@@ -61,11 +61,11 @@ corrections happen while coding, and over time, whether that rate changes.
 | 3 | **v3 — Daily driver**: tray icon with live count, trend charts, burst detection (N+ backspaces in a row = rewrite vs typo) | ☐ |
 
 ## v1 Build Order
-- [ ] **1. Scaffolding** — `pyproject.toml` (Python 3.12+, pynput), package layout under
+- [x] **1. Scaffolding** — `pyproject.toml` (Python 3.12+, pynput), package layout under
   `src/backspace_tracker/`, `.gitignore`, README stub
   - Test: `pip install -e .` succeeds; `python -c "import backspace_tracker"` works
   - Test: `python -m backspace_tracker` starts without error (and exits cleanly)
-- [ ] **2. Counter core** (`counter.py`) — `Category` enum, `Counter` class with tallies,
+- [x] **2. Counter core** (`counter.py`) — `Category` enum, `Counter` class with tallies,
   timestamps, derived stats (duration, corrections/min, correction ratio). Pure logic,
   zero I/O, unit tests alongside
   - Test: fresh counter → all tallies zero, ratio/rate are 0 (no ZeroDivisionError)
