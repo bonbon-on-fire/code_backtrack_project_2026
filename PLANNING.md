@@ -6,10 +6,10 @@ from the moment it's started to the moment it's stopped. Purpose: measure how of
 corrections happen while coding, and over time, whether that rate changes.
 
 ## Goals
-- [ ] Count correction keys globally while the app is running
-- [ ] Global hotkey (Ctrl+Alt+B) toggles recording on/off — minimal usage friction
-- [ ] Show a session summary (counts, duration, corrections/minute)
-- [ ] Compute correction ratio (correction keys ÷ total keystrokes)
+- [x] Count correction keys globally while the app is running
+- [x] Global hotkey (Ctrl+Alt+B) toggles recording on/off — minimal usage friction
+- [x] Show a session summary (counts, duration, corrections/minute)
+- [x] Compute correction ratio (correction keys ÷ total keystrokes)
 - [ ] Persist session history to spot trends over time
 - [ ] Per-app breakdown (e.g., VS Code vs terminal vs browser)
 
@@ -56,7 +56,7 @@ corrections happen while coding, and over time, whether that rate changes.
 ## Milestones
 | # | Milestone | Status |
 |---|-----------|--------|
-| 1 | **v1 — Counter**: console app, global hotkey (Ctrl+Alt+B) starts/stops a session, count correction keys + total keystrokes, summary on stop | ☐ |
+| 1 | **v1 — Counter**: console app, global hotkey (Ctrl+Alt+B) starts/stops a session, count correction keys + total keystrokes, summary on stop | ☑ |
 | 2 | **v2 — Insight**: SQLite session history, correction ratio, per-app filtering/breakdown (active-window process name) | ☐ |
 | 3 | **v3 — Daily driver**: tray icon with live count, trend charts, burst detection (N+ backspaces in a row = rewrite vs typo) | ☐ |
 
@@ -101,7 +101,9 @@ corrections happen while coding, and over time, whether that rate changes.
   - Test: summary includes every category, duration, corrections/min, correction ratio
   - Test: zero-activity session renders sane output (0s and 0%, no crash)
   - Test: duration formatting (e.g., 61s → `1m 01s`)
-- [ ] **6. End-to-end smoke test** (manual) — verify the real hook against known input
+- [x] **6. End-to-end smoke test** (manual) — verify the real hook against known input
+  (passed 2026-06-06: repeats counted during hold, C-BS/UNDO in own categories,
+  summary matched live tallies, second session started from zero)
   - Type 10 Backspaces in another app → summary shows exactly 10
   - Hold Backspace ~2s → count visibly exceeds 10 (repeats counted)
   - Press Ctrl+Backspace, Ctrl+Z → each lands in its own category
