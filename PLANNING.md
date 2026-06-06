@@ -51,6 +51,8 @@ corrections happen while coding, and over time, whether that rate changes.
 | Delete | forward delete |
 | Ctrl+Delete | forward word delete |
 | Ctrl+Z | undo (heaviest correction) — counted as its own category |
+| Overtype | printable key while a keyboard-made selection is active (v2.5) |
+| Ctrl+X | cut — may be deletion or move; own category (v2.5) |
 | (all other keys) | counted only toward total, never identified |
 
 ## Milestones
@@ -142,6 +144,44 @@ corrections happen while coding, and over time, whether that rate changes.
   a second session appends, doesn't overwrite
   (passed 2026-06-06: firefox.exe vs Notepad.exe split cleanly, ambient
   explorer/terminal keys attributed, sessions #2-#4 appended)
+
+## v2.5 Build Order — selection edge cases
+Select-then-type-over deletes text with no Backspace/Delete event, so corrections
+are undercounted. Fix with a keyboard-only selection heuristic (no text access,
+no mouse hook — see Known Limits).
+- [ ] **1. Selection state machine** (`listener.py`) — "selection probably active"
+  flag: set by Shift+Arrow/Home/End/PgUp/PgDn and Ctrl+A; survives Ctrl+C (copy);
+  cleared by plain arrows, Escape, Backspace/Delete, and after one OVERTYPE
+  - Test: Shift+Right then letter → `OVERTYPE`
+  - Test: Ctrl+A then letter → `OVERTYPE`
+  - Test: Shift+Right, plain Right (collapse), letter → `OTHER`, no overtype
+  - Test: Shift+Right, Escape, letter → `OTHER`
+  - Test: Shift+Right, Ctrl+C, letter → `OVERTYPE` (copy keeps selection)
+  - Test: flag clears after one overtype — next letter is `OTHER`
+  - Test: selection + Ctrl+V (paste-over) → `OVERTYPE`
+  - Test: selection + Delete still counts as `DELETE`, not double-counted
+- [ ] **2. New categories** (`counter.py` + `storage.py`) — `OVERTYPE` and `CUT`
+  (Ctrl+X) as correction categories; schema gains the two columns
+  - Test: both are in `CORRECTION_CATEGORIES`
+  - Test: Ctrl+X → `CUT`; Ctrl+Shift+X → `OTHER`
+  - Test: held Ctrl+Z (key-repeat) → one `CTRL_Z` per repeat event, same
+    policy as held Backspace
+  - Test: old DBs still load (column migration or default 0)
+- [ ] **3. Reporter** — OVERTYPE/CUT in status line and summary
+- [ ] **4. Scripted verification session** (manual) — ~15 editing behaviors
+  (select-replace, cut-paste, undo chains, autocomplete accept, multi-cursor)
+  performed in a real editor; diff expected vs actual counts; record results here
+
+## Known Limits (accepted blind spots)
+The hook sees keystrokes, not text or selection state. Reading actual text would
+require accessibility APIs — keylogger territory, against the privacy principle.
+Invisible and accepted:
+- Mouse selections (drag, double-click) then type-over — a mouse hook can't tell
+  "select then replace" from "place cursor then type"; too many false positives
+- Menu-driven undo/delete, multi-cursor magnitude (1 backspace = N deletions),
+  vim-mode commands (dd, ciw), autocomplete/refactors replacing typed text
+- Ctrl+X ambiguity: cut may be a move, not a deletion — counted as its own
+  category so the data can decide later
 
 ## Decisions
 - **Hotkey**: Ctrl+Alt+B toggles recording. The app launches idle; the hotkey starts a
