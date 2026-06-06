@@ -124,15 +124,15 @@ corrections happen while coding, and over time, whether that rate changes.
   - Test: per-app counts sum to the session totals
   - Test: `app=None` lands in `"unknown"`
   - Test: all v1 counter tests still pass (regression guard)
-- [ ] **3. Active-window probe** (`activewindow.py`) — ctypes
+- [x] **3. Active-window probe** (`activewindow.py`) — ctypes
   (`GetForegroundWindow` → `QueryFullProcessImageName`), process name only
   - Test: returns a non-empty string on a real desktop
   - Test: failure paths (mocked) → `"unknown"`, never a crash
-- [ ] **4. Wire-up** (`app.py`) — probe foreground app per counted event; persist
+- [x] **4. Wire-up** (`app.py`) — probe foreground app per counted event; persist
   session to SQLite on stop; print `saved session #N`
   - Test: stats flow into storage on stop (fake probe, no real hook)
   - Test: probe failure still counts the key (under `"unknown"`)
-- [ ] **5. History CLI** (`__main__.py` + reporter) — `history` lists recent sessions
+- [x] **5. History CLI** (`__main__.py` + reporter) — `history` lists recent sessions
   (date, duration, corrections/min, ratio); `apps` shows per-app breakdown
   - Test: output includes saved sessions with v1 reporter formatting
   - Test: empty DB → friendly "no sessions yet"

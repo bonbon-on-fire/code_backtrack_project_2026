@@ -8,13 +8,16 @@ from __future__ import annotations
 
 import sys
 import time
+from datetime import datetime
 from typing import Callable, TextIO
 
 from pynput import keyboard
 
+from .activewindow import foreground_app
 from .counter import Category, Counter, SessionStats
 from .listener import EventClassifier, Signal
 from .reporter import format_status_line, format_summary
+from .storage import Storage
 
 HOTKEY_HINT = "Ctrl+Alt+B"
 
@@ -26,11 +29,16 @@ class App:
         self,
         out: TextIO = sys.stdout,
         clock: Callable[[], float] = time.monotonic,
+        probe: Callable[[], str] = foreground_app,
+        storage: Storage | None = None,
     ) -> None:
         self._out = out
         self._clock = clock
+        self._probe = probe
+        self._storage = storage
         self._classifier = EventClassifier()
         self._counter: Counter | None = None
+        self._session_started_at: datetime | None = None
         self.last_stats: SessionStats | None = None
 
     @property
@@ -42,7 +50,7 @@ class App:
         if result is Signal.TOGGLE:
             self._toggle()
         elif isinstance(result, Category) and self._counter is not None:
-            self._counter.record(result)
+            self._counter.record(result, app=self._probe())
             self._show_status()
 
     def on_release(self, key: keyboard.Key | keyboard.KeyCode) -> None:
@@ -59,6 +67,7 @@ class App:
         if self._counter is None:
             self._counter = Counter(clock=self._clock)
             self._counter.start()
+            self._session_started_at = datetime.now()
             self._out.write(f"\nrecording - {HOTKEY_HINT} to stop\n")
             self._out.flush()
         else:
@@ -69,6 +78,9 @@ class App:
         self.last_stats = self._counter.stop()
         self._counter = None
         self._out.write("\n" + format_summary(self.last_stats) + "\n")
+        if self._storage is not None and self._session_started_at is not None:
+            session_id = self._storage.save_session(self._session_started_at, self.last_stats)
+            self._out.write(f"\nsaved session #{session_id}\n")
         self._out.write(f"\nidle - {HOTKEY_HINT} to start a new session\n")
         self._out.flush()
 
@@ -81,7 +93,7 @@ class App:
 
 
 def run() -> None:
-    app = App()
+    app = App(storage=Storage())
     listener = keyboard.Listener(on_press=app.on_press, on_release=app.on_release)
     listener.start()
     print(f"backspace-tracker: idle - press {HOTKEY_HINT} to start recording (Ctrl+C quits)")

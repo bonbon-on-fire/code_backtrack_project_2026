@@ -7,6 +7,7 @@ import pytest
 from pynput import keyboard
 
 from backspace_tracker.app import App
+from backspace_tracker.counter import UNKNOWN_APP, Category
 
 Key = keyboard.Key
 KeyCode = keyboard.KeyCode
@@ -19,7 +20,11 @@ def out():
 
 @pytest.fixture
 def app(out):
-    return App(out=out, clock=itertools.count(0.0, 1.0).__next__)
+    return App(
+        out=out,
+        clock=itertools.count(0.0, 1.0).__next__,
+        probe=lambda: "TestApp.exe",
+    )
 
 
 def toggle(app):
@@ -95,3 +100,52 @@ def test_summary_printed_on_stop(app, out):
     type_key(app, Key.backspace)
     toggle(app)
     assert "Session summary" in out.getvalue()
+
+
+# --- Step 4 (v2) test cases from PLANNING.md: storage wiring ---
+
+
+def make_app_with_storage(out, tmp_path, probe=lambda: "TestApp.exe"):
+    from backspace_tracker.storage import Storage
+
+    storage = Storage(tmp_path / "sessions.db")
+    app = App(
+        out=out,
+        clock=itertools.count(0.0, 1.0).__next__,
+        probe=probe,
+        storage=storage,
+    )
+    return app, storage
+
+
+def test_stats_flow_into_storage_on_stop(out, tmp_path):
+    app, storage = make_app_with_storage(out, tmp_path)
+    toggle(app)
+    type_key(app, Key.backspace)
+    type_key(app, KeyCode.from_char("a"))
+    toggle(app)
+
+    [record] = storage.load_sessions()
+    assert record.stats.total_keystrokes == 2
+    assert record.stats.correction_count == 1
+    assert record.stats.app_counts["TestApp.exe"][Category.BACKSPACE] == 1
+    assert "saved session #1" in out.getvalue()
+
+
+def test_probe_failure_still_counts_key(out, tmp_path):
+    app, storage = make_app_with_storage(out, tmp_path, probe=lambda: UNKNOWN_APP)
+    toggle(app)
+    type_key(app, Key.backspace)
+    toggle(app)
+
+    [record] = storage.load_sessions()
+    assert record.stats.total_keystrokes == 1
+    assert record.stats.app_counts[UNKNOWN_APP][Category.BACKSPACE] == 1
+
+
+def test_shutdown_while_recording_persists_session(out, tmp_path):
+    app, storage = make_app_with_storage(out, tmp_path)
+    toggle(app)
+    type_key(app, Key.backspace)
+    app.shutdown()
+    assert len(storage.load_sessions()) == 1

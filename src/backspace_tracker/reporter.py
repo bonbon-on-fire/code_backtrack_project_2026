@@ -1,8 +1,13 @@
-"""Reporter: live status line and end-of-session summary. Pure formatting, no state."""
+"""Reporter: live status line, session summary, history views. Pure formatting."""
 
 from __future__ import annotations
 
-from .counter import Category, SessionStats
+from typing import TYPE_CHECKING
+
+from .counter import CORRECTION_CATEGORIES, Category, SessionStats
+
+if TYPE_CHECKING:
+    from .storage import SessionRecord
 
 # ASCII labels: classic Windows consoles (cp1252) can't print glyphs like U+232B.
 _LABELS = {
@@ -41,6 +46,53 @@ def format_status_line(stats: SessionStats) -> str:
     parts.append(f"total {stats.total_keystrokes:,}")
     parts.append(f"{stats.corrections_per_minute:.1f}/min")
     return " | ".join(parts)
+
+
+NO_SESSIONS_HINT = "no sessions yet - run the tracker and toggle a session with Ctrl+Alt+B"
+
+
+def render_history(records: list[SessionRecord]) -> str:
+    """One line per saved session: id, start, duration, corrections, rate, ratio."""
+    if not records:
+        return NO_SESSIONS_HINT
+    lines = ["=== Session history ==="]
+    for r in records:
+        s = r.stats
+        started = r.started_at.replace("T", " ")
+        lines.append(
+            f"  #{r.id:<4} {started}  {format_duration(s.duration_seconds):>9}  "
+            f"corr {s.correction_count:>6,}  total {s.total_keystrokes:>7,}  "
+            f"{s.corrections_per_minute:>6.1f}/min  {s.correction_ratio:>6.1%}"
+        )
+    return "\n".join(lines)
+
+
+def render_apps(records: list[SessionRecord]) -> str:
+    """Per-app correction totals aggregated across all saved sessions."""
+    totals: dict[str, dict[Category, int]] = {}
+    for r in records:
+        for app, per_app in r.stats.app_counts.items():
+            bucket = totals.setdefault(app, {cat: 0 for cat in Category})
+            for cat, count in per_app.items():
+                bucket[cat] += count
+    if not totals:
+        return NO_SESSIONS_HINT
+
+    lines = ["=== Corrections by app ==="]
+    width = max(len(app) for app in totals)
+    by_corrections = sorted(
+        totals.items(),
+        key=lambda item: sum(item[1][cat] for cat in CORRECTION_CATEGORIES),
+        reverse=True,
+    )
+    for app, counts in by_corrections:
+        corrections = sum(counts[cat] for cat in CORRECTION_CATEGORIES)
+        total = sum(counts.values())
+        ratio = corrections / total if total else 0.0
+        lines.append(
+            f"  {app:<{width}}  corr {corrections:>6,}  total {total:>7,}  {ratio:>6.1%}"
+        )
+    return "\n".join(lines)
 
 
 def format_summary(stats: SessionStats) -> str:
