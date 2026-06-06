@@ -39,7 +39,13 @@ class App:
         self._classifier = EventClassifier()
         self._counter: Counter | None = None
         self._session_started_at: datetime | None = None
+        self._pending_save: tuple[datetime, SessionStats] | None = None
         self.last_stats: SessionStats | None = None
+
+    @property
+    def pending_save(self) -> tuple[datetime, SessionStats] | None:
+        """A finished session awaiting the user's save/discard decision."""
+        return self._pending_save
 
     @property
     def recording(self) -> bool:
@@ -60,8 +66,6 @@ class App:
         """Ctrl+C: finalize an in-flight session before exiting."""
         if self._counter is not None:
             self._stop_session()
-        self._out.write("bye\n")
-        self._out.flush()
 
     def _toggle(self) -> None:
         if self._counter is None:
@@ -79,8 +83,23 @@ class App:
         self._counter = None
         self._out.write("\n" + format_summary(self.last_stats) + "\n")
         if self._storage is not None and self._session_started_at is not None:
-            session_id = self._storage.save_session(self._session_started_at, self.last_stats)
-            self._out.write(f"\nsaved session #{session_id}\n")
+            # Saving waits for the user's answer; the main loop prompts and
+            # calls resolve_pending_save (input() can't run on this thread).
+            self._pending_save = (self._session_started_at, self.last_stats)
+        else:
+            self._out.write(f"\nidle - {HOTKEY_HINT} to start a new session\n")
+        self._out.flush()
+
+    def resolve_pending_save(self, save: bool) -> None:
+        if self._pending_save is None:
+            return
+        started_at, stats = self._pending_save
+        self._pending_save = None
+        if save and self._storage is not None:
+            self._storage.save_session(started_at, stats)
+            self._out.write(f"saved session {started_at:%Y-%m-%d %H:%M:%S}\n")
+        else:
+            self._out.write("session discarded\n")
         self._out.write(f"\nidle - {HOTKEY_HINT} to start a new session\n")
         self._out.flush()
 
@@ -92,6 +111,17 @@ class App:
         self._out.flush()
 
 
+def _prompt_pending_save(app: App) -> None:
+    """Main thread only: ask about a finished session, then resolve it."""
+    if app.pending_save is None:
+        return
+    try:
+        answer = input("\nsave this session? [Y/n]: ")
+    except (EOFError, KeyboardInterrupt):
+        answer = ""  # default to saving; losing data is the worse failure
+    app.resolve_pending_save(answer.strip().lower() not in ("n", "no"))
+
+
 def run() -> None:
     app = App(storage=Storage())
     listener = keyboard.Listener(on_press=app.on_press, on_release=app.on_release)
@@ -100,7 +130,10 @@ def run() -> None:
     try:
         while listener.running:
             time.sleep(0.2)  # sleep-poll so Ctrl+C is delivered promptly on Windows
+            _prompt_pending_save(app)
     except KeyboardInterrupt:
         app.shutdown()
+        _prompt_pending_save(app)
     finally:
         listener.stop()
+    print("bye")

@@ -118,18 +118,43 @@ def make_app_with_storage(out, tmp_path, probe=lambda: "TestApp.exe"):
     return app, storage
 
 
-def test_stats_flow_into_storage_on_stop(out, tmp_path):
+def test_stop_creates_pending_save_not_a_row(out, tmp_path):
+    app, storage = make_app_with_storage(out, tmp_path)
+    toggle(app)
+    type_key(app, Key.backspace)
+    toggle(app)
+
+    assert app.pending_save is not None
+    assert storage.load_sessions() == []  # nothing saved until the user answers
+
+
+def test_confirmed_save_persists_and_reports_datetime(out, tmp_path):
     app, storage = make_app_with_storage(out, tmp_path)
     toggle(app)
     type_key(app, Key.backspace)
     type_key(app, KeyCode.from_char("a"))
     toggle(app)
+    app.resolve_pending_save(True)
 
     [record] = storage.load_sessions()
     assert record.stats.total_keystrokes == 2
     assert record.stats.correction_count == 1
     assert record.stats.app_counts["TestApp.exe"][Category.BACKSPACE] == 1
-    assert "saved session #1" in out.getvalue()
+    assert "saved session 20" in out.getvalue()  # date-time identity, no #N
+    assert "#1" not in out.getvalue()
+    assert app.pending_save is None
+
+
+def test_declined_save_discards_session(out, tmp_path):
+    app, storage = make_app_with_storage(out, tmp_path)
+    toggle(app)
+    type_key(app, Key.backspace)
+    toggle(app)
+    app.resolve_pending_save(False)
+
+    assert storage.load_sessions() == []
+    assert "session discarded" in out.getvalue()
+    assert app.pending_save is None
 
 
 def test_probe_failure_still_counts_key(out, tmp_path):
@@ -137,15 +162,31 @@ def test_probe_failure_still_counts_key(out, tmp_path):
     toggle(app)
     type_key(app, Key.backspace)
     toggle(app)
+    app.resolve_pending_save(True)
 
     [record] = storage.load_sessions()
     assert record.stats.total_keystrokes == 1
     assert record.stats.app_counts[UNKNOWN_APP][Category.BACKSPACE] == 1
 
 
-def test_shutdown_while_recording_persists_session(out, tmp_path):
+def test_shutdown_while_recording_creates_pending_save(out, tmp_path):
     app, storage = make_app_with_storage(out, tmp_path)
     toggle(app)
     type_key(app, Key.backspace)
     app.shutdown()
+    assert app.pending_save is not None
+    app.resolve_pending_save(True)
     assert len(storage.load_sessions()) == 1
+
+
+def test_new_session_can_start_while_save_pending(out, tmp_path):
+    app, storage = make_app_with_storage(out, tmp_path)
+    toggle(app)
+    type_key(app, Key.backspace)
+    toggle(app)  # stop -> pending
+    toggle(app)  # start a new session before answering
+    assert app.recording
+    assert app.pending_save is not None
+    app.resolve_pending_save(True)
+    assert len(storage.load_sessions()) == 1
+    assert app.recording  # resolving didn't disturb the live session

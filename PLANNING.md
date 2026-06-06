@@ -156,6 +156,11 @@ corrections happen while coding, and over time, whether that rate changes.
 - **v2 app identity**: process name only (window titles leak document/file names,
   violating the privacy principle). Probe failure → key counted under `"unknown"`,
   so totals stay accurate and only the breakdown degrades.
+- **Saving is opt-in per session**: on stop, the terminal asks `save this session?
+  [Y/n]` (Enter = save; Ctrl+C during the prompt also saves — losing data is the
+  worse failure). Prompt runs on the main loop; the hotkey thread can't block.
+- **Sessions are identified by start date-time** (`2026-06-06 13:27:45`), not by
+  numeric id. The integer id remains internal to SQLite as a join key.
 - **Key-repeat**: every repeat counts — each repeat deletes a real character, so it's
   genuine correction volume. No thresholding in v1.
 

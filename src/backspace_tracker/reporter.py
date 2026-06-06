@@ -52,7 +52,7 @@ NO_SESSIONS_HINT = "no sessions yet - run the tracker and toggle a session with 
 
 
 def render_history(records: list[SessionRecord]) -> str:
-    """One line per saved session: id, start, duration, corrections, rate, ratio."""
+    """One line per saved session, identified by its start date and time."""
     if not records:
         return NO_SESSIONS_HINT
     lines = ["=== Session history ==="]
@@ -60,7 +60,7 @@ def render_history(records: list[SessionRecord]) -> str:
         s = r.stats
         started = r.started_at.replace("T", " ")
         lines.append(
-            f"  #{r.id:<4} {started}  {format_duration(s.duration_seconds):>9}  "
+            f"  {started}  {format_duration(s.duration_seconds):>9}  "
             f"corr {s.correction_count:>6,}  total {s.total_keystrokes:>7,}  "
             f"{s.corrections_per_minute:>6.1f}/min  {s.correction_ratio:>6.1%}"
         )
