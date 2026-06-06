@@ -10,8 +10,8 @@ corrections happen while coding, and over time, whether that rate changes.
 - [x] Global hotkey (Ctrl+Alt+B) toggles recording on/off — minimal usage friction
 - [x] Show a session summary (counts, duration, corrections/minute)
 - [x] Compute correction ratio (correction keys ÷ total keystrokes)
-- [ ] Persist session history to spot trends over time
-- [ ] Per-app breakdown (e.g., VS Code vs terminal vs browser)
+- [x] Persist session history to spot trends over time
+- [x] Per-app breakdown (e.g., VS Code vs terminal vs browser)
 
 ## Non-Goals
 - Logging *which* keys are pressed or reconstructing typed text — this is a
@@ -57,7 +57,7 @@ corrections happen while coding, and over time, whether that rate changes.
 | # | Milestone | Status |
 |---|-----------|--------|
 | 1 | **v1 — Counter**: console app, global hotkey (Ctrl+Alt+B) starts/stops a session, count correction keys + total keystrokes, summary on stop | ☑ |
-| 2 | **v2 — Insight**: SQLite session history, correction ratio, per-app filtering/breakdown (active-window process name) | ☐ |
+| 2 | **v2 — Insight**: SQLite session history, correction ratio, per-app filtering/breakdown (active-window process name) | ☑ |
 | 3 | **v3 — Daily driver**: tray icon with live count, trend charts, burst detection (N+ backspaces in a row = rewrite vs typo) | ☐ |
 
 ## v1 Build Order
@@ -137,9 +137,11 @@ corrections happen while coding, and over time, whether that rate changes.
   - Test: output includes saved sessions with v1 reporter formatting
   - Test: empty DB → friendly "no sessions yet"
   - Test: bare `python -m backspace_tracker` still runs the tracker (unchanged)
-- [ ] **6. End-to-end smoke test** (manual) — one session typing in two different
+- [x] **6. End-to-end smoke test** (manual) — one session typing in two different
   apps; `history` shows it; `apps` splits counts between the two processes;
   a second session appends, doesn't overwrite
+  (passed 2026-06-06: firefox.exe vs Notepad.exe split cleanly, ambient
+  explorer/terminal keys attributed, sessions #2-#4 appended)
 
 ## Decisions
 - **Hotkey**: Ctrl+Alt+B toggles recording. The app launches idle; the hotkey starts a
