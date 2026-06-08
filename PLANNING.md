@@ -149,9 +149,10 @@ corrections happen while coding, and over time, whether that rate changes.
 Select-then-type-over deletes text with no Backspace/Delete event, so corrections
 are undercounted. Fix with a keyboard-only selection heuristic (no text access,
 no mouse hook — see Known Limits).
-- [ ] **1. Selection state machine** (`listener.py`) — "selection probably active"
+- [x] **1. Selection state machine** (`listener.py`) — "selection probably active"
   flag: set by Shift+Arrow/Home/End/PgUp/PgDn and Ctrl+A; survives Ctrl+C (copy);
-  cleared by plain arrows, Escape, Backspace/Delete, and after one OVERTYPE
+  cleared by plain arrows, Escape, Backspace/Delete, and after one OVERTYPE.
+  OVERTYPE triggers on printable keys + Enter (Tab stays OTHER — usually indent).
   - Test: Shift+Right then letter → `OVERTYPE`
   - Test: Ctrl+A then letter → `OVERTYPE`
   - Test: Shift+Right, plain Right (collapse), letter → `OTHER`, no overtype
@@ -160,14 +161,16 @@ no mouse hook — see Known Limits).
   - Test: flag clears after one overtype — next letter is `OTHER`
   - Test: selection + Ctrl+V (paste-over) → `OVERTYPE`
   - Test: selection + Delete still counts as `DELETE`, not double-counted
-- [ ] **2. New categories** (`counter.py` + `storage.py`) — `OVERTYPE` and `CUT`
-  (Ctrl+X) as correction categories; schema gains the two columns
+- [x] **2. New categories** (`counter.py` + `storage.py`) — `OVERTYPE` and `CUT`
+  (Ctrl+X) as correction categories; schema gains the two columns (old DBs
+  backfilled via `ALTER TABLE ... DEFAULT 0` on open)
   - Test: both are in `CORRECTION_CATEGORIES`
   - Test: Ctrl+X → `CUT`; Ctrl+Shift+X → `OTHER`
   - Test: held Ctrl+Z (key-repeat) → one `CTRL_Z` per repeat event, same
     policy as held Backspace
   - Test: old DBs still load (column migration or default 0)
-- [ ] **3. Reporter** — OVERTYPE/CUT in status line and summary
+- [x] **3. Reporter** — OVERTYPE/CUT in the summary only (live status line kept
+  compact, by decision)
 - [ ] **4. Scripted verification session** (manual) — ~15 editing behaviors
   (select-replace, cut-paste, undo chains, autocomplete accept, multi-cursor)
   performed in a real editor; diff expected vs actual counts; record results here
@@ -203,6 +206,11 @@ Invisible and accepted:
   numeric id. The integer id remains internal to SQLite as a join key.
 - **Key-repeat**: every repeat counts — each repeat deletes a real character, so it's
   genuine correction volume. No thresholding in v1.
+- **v2.5 overtype trigger**: printable characters + Enter replace a live selection
+  (counted OVERTYPE). Tab stays OTHER — Tab over a selection is usually indent, and
+  the false-positive risk isn't worth the rare catch.
+- **v2.5 reporter**: OVERTYPE/CUT appear in the session summary only; the live status
+  line stays compact with the original five categories.
 
 ## Open Questions
 - Burst threshold (v3): how many consecutive backspaces counts as a "rewrite"?
