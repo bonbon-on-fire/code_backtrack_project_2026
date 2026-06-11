@@ -64,7 +64,7 @@ still recorded (cheap, already collected) but become a secondary breakdown.
 |---|-----------|--------|
 | 1 | **v1 — Counter**: console app, global hotkey (Ctrl+Alt+B) starts/stops a session, count correction keys + total keystrokes, summary on stop | ☑ |
 | 2 | **v2 — Insight**: SQLite session history, correction ratio, per-app filtering/breakdown (active-window process name) | ☑ |
-| 3 | **v3 — Meaningful metric**: characters added vs. characters deleted, and the delete % — one number that says "how much of what I type do I end up removing" | ☐ |
+| 3 | **v3 — Meaningful metric**: characters added vs. characters deleted, and the delete % — one number that says "how much of what I type do I end up removing" | ☑ |
 | 4 | **v4 — Daily driver**: tray icon with live count, trend charts, burst detection (N+ backspaces in a row = rewrite vs typo) | ☐ |
 
 ## v1 Build Order
@@ -229,10 +229,12 @@ deletes use a fixed estimate, so no text or selection is ever read.
   - Test: summary shows added, deleted, delete %, net
   - Test: zero-activity session renders 0s / 0%, no crash
   - Test: `history` rows include delete %
-- [ ] **5. End-to-end smoke test** (manual, **pending**) — type a known string,
-  delete part of it with backspaces and one Ctrl+Backspace; confirm added/deleted/%
-  match the hand count (± the word-delete estimate). Steps 1–4 are built and
-  unit-tested (141 passing); this is the only step needing a live keyboard hook.
+- [x] **5. End-to-end smoke test** (manual) — type a known string, delete part of
+  it with backspaces and one Ctrl+Backspace; confirm added/deleted/% match the
+  hand count (± the word-delete estimate).
+  (passed 2026-06-10: typed `helloworld` + Backspace ×3 + Ctrl+Backspace ×1 →
+  Typed=10, Deleted=8, Delete %=80.0%, Net=2; word-delete estimate applied as
+  expected. Note: stale running process must be restarted to pick up new builds.)
 
 ## Known Limits (accepted blind spots)
 The hook sees keystrokes, not text or selection state. Reading actual text would
