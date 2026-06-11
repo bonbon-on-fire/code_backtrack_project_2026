@@ -43,6 +43,17 @@ def test_render_history_includes_sessions_and_v1_formatting(tmp_path):
     assert "3.0/min" in out  # session 1: 6 corrections / 2 min
 
 
+def test_render_history_shows_delete_pct(tmp_path):
+    storage = Storage(tmp_path / "s.db")
+    storage.save_session(
+        datetime(2026, 6, 9, 12, 0),
+        make_stats([(Category.CHAR, "Code.exe")] * 10 + [(Category.BACKSPACE, "Code.exe")] * 3),
+    )
+    out = render_history(storage.load_sessions())
+    assert "del " in out
+    assert "30.0%" in out  # 3 deleted / 10 typed
+
+
 def test_render_apps_aggregates_across_sessions(tmp_path):
     out = render_apps(seeded_storage(tmp_path).load_sessions())
     # Code.exe: 4+1 corrections of 9 keys across both sessions

@@ -72,6 +72,17 @@ def test_overtype_and_cut_count_toward_correction_ratio():
     assert "50.0%" in format_summary(stats)
 
 
+def test_summary_shows_char_headline():
+    # 10 typed, 2 deleted -> 20% delete, net 8 (v3 headline).
+    stats = make_stats([Category.CHAR] * 10 + [Category.BACKSPACE] * 2, duration=60.0)
+    summary = format_summary(stats)
+    assert "Typed (added)" in summary
+    assert "Deleted" in summary
+    assert "Delete %" in summary
+    assert "Net characters" in summary
+    assert "20.0%" in summary  # 2 / 10
+
+
 def test_zero_activity_session_renders_sane_output():
     stats = make_stats([], duration=0.0)
     summary = format_summary(stats)

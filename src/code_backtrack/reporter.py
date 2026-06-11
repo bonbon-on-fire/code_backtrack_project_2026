@@ -75,7 +75,8 @@ def render_history(records: list[SessionRecord]) -> str:
         lines.append(
             f"  {started}  {format_duration(s.duration_seconds):>9}  "
             f"corr {s.correction_count:>6,}  total {s.total_keystrokes:>7,}  "
-            f"{s.corrections_per_minute:>6.1f}/min  {s.correction_ratio:>6.1%}"
+            f"{s.corrections_per_minute:>6.1f}/min  ratio {s.correction_ratio:>6.1%}  "
+            f"del {s.delete_pct:>6.1%}"
         )
     return "\n".join(lines)
 
@@ -111,7 +112,16 @@ def render_apps(records: list[SessionRecord]) -> str:
 def format_summary(stats: SessionStats) -> str:
     """Full session summary printed when recording stops."""
     width = max(len(name) for name in _SUMMARY_NAMES.values())
-    lines = ["", "=== Session summary ===" ]
+    lines = ["", "=== Session summary ==="]
+    # Headline (v3): the character model - how much of what you typed you removed.
+    # Word deletes are estimated; undo/overtype/cut are not counted here (see
+    # the breakdown below for the raw per-key tallies).
+    lines.append(f"  {'Typed (added)':<{width}}  {stats.chars_added:>7,}")
+    lines.append(f"  {'Deleted (est.)':<{width}}  {stats.chars_deleted:>7,}")
+    lines.append(f"  {'Delete %':<{width}}  {stats.delete_pct:>7.1%}")
+    lines.append(f"  {'Net characters':<{width}}  {stats.net_chars:>7,}")
+    lines.append("")
+    lines.append("  --- breakdown ---")
     for cat, name in _SUMMARY_NAMES.items():
         lines.append(f"  {name:<{width}}  {stats.counts[cat]:>7,}")
     lines.append(f"  {'Total keystrokes':<{width}}  {stats.total_keystrokes:>7,}")
