@@ -110,3 +110,47 @@ class TrayController:
                 icon.notify(self.summary_notification(), "code-backtrack")
             self._last_recording = recording
         icon.update_menu()
+
+
+class _NullIO:
+    """Swallows App's console writes - the tray has no terminal surface."""
+
+    def write(self, *_: object) -> int:
+        return 0
+
+    def flush(self) -> None:
+        pass
+
+
+def run_tray(refresh_seconds: float = 1.0) -> None:
+    """Launch the tray front-end: idle until toggled, no persistence (v4)."""
+    from pynput import keyboard
+
+    app = App(out=_NullIO())  # storage=None -> live-only, discarded on stop
+    listener = keyboard.Listener(on_press=app.on_press, on_release=app.on_release)
+    stop_event = threading.Event()
+
+    def on_quit() -> None:
+        stop_event.set()
+        listener.stop()
+
+    controller = TrayController(app, on_quit=on_quit)
+    icon = pystray.Icon(
+        "code-backtrack",
+        icon=make_icon_image(False),
+        title=controller.tooltip(),
+        menu=controller.build_menu(),
+    )
+
+    def updater() -> None:
+        # Reflect hotkey toggles and live counts even when the change came from
+        # the keyboard thread, not the menu.
+        while not stop_event.wait(refresh_seconds):
+            controller.refresh(icon)
+
+    def setup(tray_icon: pystray.Icon) -> None:
+        tray_icon.visible = True
+        listener.start()
+        threading.Thread(target=updater, daemon=True).start()
+
+    icon.run(setup=setup)

@@ -161,3 +161,23 @@ def test_bare_invocation_runs_tracker(monkeypatch):
     monkeypatch.setattr(app_module, "run", lambda: called.append(True))
     main([])
     assert called == [True]
+
+
+def test_tray_subcommand_routes_to_run_tray(monkeypatch):
+    import code_backtrack.tray as tray_module
+
+    called = []
+    monkeypatch.setattr(tray_module, "run_tray", lambda: called.append(True))
+    main(["tray"])
+    assert called == [True]
+
+
+def test_tray_does_not_run_console_tracker(monkeypatch):
+    import code_backtrack.app as app_module
+    import code_backtrack.tray as tray_module
+
+    ran = {"console": False, "tray": False}
+    monkeypatch.setattr(app_module, "run", lambda: ran.__setitem__("console", True))
+    monkeypatch.setattr(tray_module, "run_tray", lambda: ran.__setitem__("tray", True))
+    main(["tray"])
+    assert ran == {"console": False, "tray": True}

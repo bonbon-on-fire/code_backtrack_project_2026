@@ -1,4 +1,4 @@
-"""Entry point: python -m code_backtrack [run|history|apps|list|delete] [--db PATH]."""
+"""Entry point: python -m code_backtrack [run|tray|history|apps|list|delete] [--db PATH]."""
 
 from __future__ import annotations
 
@@ -15,6 +15,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="code-backtrack", parents=[common])
     sub = parser.add_subparsers(dest="command")
     sub.add_parser("run", parents=[common], help="run the tracker (default)")
+    sub.add_parser("tray", parents=[common], help="run in the system tray (no saving)")
     sub.add_parser("history", parents=[common], help="list saved sessions with stats")
     sub.add_parser("apps", parents=[common], help="per-app correction breakdown")
     sub.add_parser("list", parents=[common], help="bare list of stored sessions")
@@ -54,6 +55,11 @@ def main(argv: list[str] | None = None) -> None:
         from .app import run  # imports pynput; keep data commands usable without a hook
 
         run()
+        return
+    if command == "tray":
+        from .tray import run_tray  # imports pynput + pystray lazily
+
+        run_tray()
         return
     storage = Storage(args.db)
     if command == "history":
