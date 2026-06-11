@@ -50,6 +50,19 @@ def format_status_line(stats: SessionStats) -> str:
     return " | ".join(parts)
 
 
+def format_tray_tooltip(stats: SessionStats | None, recording: bool) -> str:
+    """One short line for the tray icon tooltip / menu (v4).
+
+    Idle shows no counts; recording shows the headline char metric and duration.
+    """
+    if not recording or stats is None:
+        return "code-backtrack: idle"
+    return (
+        f"REC {format_duration(stats.duration_seconds)} | "
+        f"typed {stats.chars_added:,} | del {stats.delete_pct:.0%}"
+    )
+
+
 NO_SESSIONS_HINT = "no sessions yet - run the tracker and toggle a session with Ctrl+Alt+B"
 
 

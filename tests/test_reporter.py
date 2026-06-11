@@ -3,7 +3,12 @@
 import pytest
 
 from code_backtrack.counter import Category, Counter
-from code_backtrack.reporter import format_duration, format_status_line, format_summary
+from code_backtrack.reporter import (
+    format_duration,
+    format_status_line,
+    format_summary,
+    format_tray_tooltip,
+)
 
 
 def make_stats(records=(), duration=60.0):
@@ -90,6 +95,33 @@ def test_zero_activity_session_renders_sane_output():
     assert "0.0%" in summary  # correction ratio
     line = format_status_line(stats)
     assert "total 0" in line
+
+
+# --- v4 test cases: tray tooltip ---
+
+
+def test_tray_tooltip_idle_has_no_counts():
+    tip = format_tray_tooltip(None, recording=False)
+    assert "idle" in tip
+    assert "typed" not in tip
+    # also idle when not recording even if stale stats exist
+    stale = make_stats([Category.CHAR] * 5, duration=10.0)
+    assert "idle" in format_tray_tooltip(stale, recording=False)
+
+
+def test_tray_tooltip_recording_shows_typed_delete_pct_and_duration():
+    stats = make_stats([Category.CHAR] * 20 + [Category.BACKSPACE] * 5, duration=61.0)
+    tip = format_tray_tooltip(stats, recording=True)
+    assert "typed 20" in tip
+    assert "del 25%" in tip  # 5 / 20
+    assert "1m 01s" in tip
+
+
+def test_tray_tooltip_zero_activity_recording_is_sane():
+    stats = make_stats([], duration=0.0)
+    tip = format_tray_tooltip(stats, recording=True)
+    assert "typed 0" in tip
+    assert "del 0%" in tip
 
 
 @pytest.mark.parametrize(
