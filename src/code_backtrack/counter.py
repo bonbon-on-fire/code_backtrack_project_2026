@@ -37,6 +37,12 @@ CORRECTION_CATEGORIES = frozenset(
 # Per-app bucket for events whose source app could not be identified.
 UNKNOWN_APP = "unknown"
 
+# Word deletes (Ctrl+Backspace/Delete) remove a word of unknown length - the hook
+# never reads text. We estimate each as the average word length so the character
+# math stays on the counter side of the privacy line. Rare in practice and skews
+# long when used, so this slightly under-counts; tune here if needed. (v3)
+WORD_DELETE_CHARS = 5
+
 
 @dataclass(frozen=True)
 class SessionStats:
@@ -46,6 +52,10 @@ class SessionStats:
     duration_seconds: float
     corrections_per_minute: float
     correction_ratio: float
+    chars_added: int  # typed content characters (v3)
+    chars_deleted: int  # single-char deletes + estimated word deletes (v3)
+    delete_pct: float  # chars_deleted / chars_added (v3)
+    net_chars: int  # chars_added - chars_deleted (v3)
     app_counts: dict[str, dict[Category, int]] = field(default_factory=dict)
 
 
@@ -60,6 +70,18 @@ def compute_stats(
     corrections = sum(full_counts[cat] for cat in CORRECTION_CATEGORIES)
     rate = corrections / (duration_seconds / 60) if duration_seconds > 0 else 0.0
     ratio = corrections / total if total > 0 else 0.0
+
+    # Character model (v3): single-char deletes are exact; word deletes estimated.
+    # Undo/Overtype/Cut have no defensible size, so they stay out of the totals.
+    chars_added = full_counts[Category.CHAR]
+    chars_deleted = (
+        full_counts[Category.BACKSPACE]
+        + full_counts[Category.DELETE]
+        + (full_counts[Category.CTRL_BACKSPACE] + full_counts[Category.CTRL_DELETE])
+        * WORD_DELETE_CHARS
+    )
+    delete_pct = chars_deleted / chars_added if chars_added > 0 else 0.0
+
     return SessionStats(
         counts=full_counts,
         total_keystrokes=total,
@@ -67,6 +89,10 @@ def compute_stats(
         duration_seconds=duration_seconds,
         corrections_per_minute=rate,
         correction_ratio=ratio,
+        chars_added=chars_added,
+        chars_deleted=chars_deleted,
+        delete_pct=delete_pct,
+        net_chars=chars_added - chars_deleted,
         app_counts={app: dict(per_app) for app, per_app in (app_counts or {}).items()},
     )
 

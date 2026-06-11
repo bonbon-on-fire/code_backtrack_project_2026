@@ -5,6 +5,7 @@ import pytest
 from code_backtrack.counter import (
     CORRECTION_CATEGORIES,
     UNKNOWN_APP,
+    WORD_DELETE_CHARS,
     Category,
     Counter,
 )
@@ -120,3 +121,50 @@ def test_apps_tracked_separately():
     assert stats.app_counts["Code.exe"][Category.BACKSPACE] == 1
     assert stats.app_counts["Code.exe"][Category.DELETE] == 0
     assert stats.app_counts["notepad.exe"][Category.DELETE] == 1
+
+
+# --- v3 test cases from PLANNING.md: character model (added vs deleted) ---
+
+
+def test_chars_added_and_deleted_and_pct():
+    counter = Counter()
+    for _ in range(10):
+        counter.record(Category.CHAR)
+    for _ in range(4):
+        counter.record(Category.BACKSPACE)
+    counter.record(Category.DELETE)  # forward delete is also one char
+    stats = counter.stats()
+    assert stats.chars_added == 10
+    assert stats.chars_deleted == 5  # 4 backspace + 1 delete
+    assert stats.delete_pct == pytest.approx(0.5)
+    assert stats.net_chars == 5
+
+
+def test_word_deletes_count_as_estimate():
+    counter = Counter()
+    counter.record(Category.CTRL_BACKSPACE)
+    counter.record(Category.CTRL_DELETE)
+    stats = counter.stats()
+    # Each word delete estimated at WORD_DELETE_CHARS chars.
+    assert stats.chars_deleted == 2 * WORD_DELETE_CHARS
+    assert stats.chars_added == 0
+
+
+def test_undo_overtype_cut_excluded_from_char_totals():
+    counter = Counter()
+    counter.record(Category.CHAR)
+    counter.record(Category.CTRL_Z)
+    counter.record(Category.OVERTYPE)
+    counter.record(Category.CUT)
+    stats = counter.stats()
+    assert stats.chars_added == 1
+    assert stats.chars_deleted == 0  # none of undo/overtype/cut move it
+
+
+def test_zero_typed_delete_pct_is_zero_not_crash():
+    counter = Counter()
+    counter.record(Category.BACKSPACE)  # delete with nothing added
+    stats = counter.stats()
+    assert stats.chars_added == 0
+    assert stats.delete_pct == 0.0  # no ZeroDivisionError
+    assert stats.net_chars == -1
