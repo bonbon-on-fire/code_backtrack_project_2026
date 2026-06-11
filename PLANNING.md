@@ -65,7 +65,7 @@ still recorded (cheap, already collected) but become a secondary breakdown.
 | 1 | **v1 — Counter**: console app, global hotkey (Ctrl+Alt+B) starts/stops a session, count correction keys + total keystrokes, summary on stop | ☑ |
 | 2 | **v2 — Insight**: SQLite session history, correction ratio, per-app filtering/breakdown (active-window process name) | ☑ |
 | 3 | **v3 — Meaningful metric**: characters added vs. characters deleted, and the delete % — one number that says "how much of what I type do I end up removing" | ☑ |
-| 4 | **v4 — Daily driver**: tray icon with live count, trend charts, burst detection (N+ backspaces in a row = rewrite vs typo) | ☐ |
+| 4 | **v4 — Daily driver**: system-tray icon with live count + start/stop menu, so the tracker runs alongside work without a terminal. (Trend charts and burst detection were considered and dropped — not wanted.) | ☐ |
 
 ## v1 Build Order
 - [x] **1. Scaffolding** — `pyproject.toml` (Python 3.12+, pynput), package layout under
@@ -295,8 +295,12 @@ Invisible and accepted:
   deflate the delete %.
 
 ## Open Questions
-- Burst threshold (v4): how many consecutive backspaces counts as a "rewrite"?
-  Starting guess: ≥10 — tune once v3 session data exists.
+- (none open)
+
+## Dropped (considered, not pursued)
+- **Trend charts** and **burst detection** (rewrite vs typo from N+ consecutive
+  backspaces) — were planned for v4 but dropped as not wanted. v4 is the tray icon
+  only.
 
 ## Notes
 - v1 counts everywhere; the user controls data quality by only running it while coding.
