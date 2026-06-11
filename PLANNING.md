@@ -171,9 +171,12 @@ no mouse hook — see Known Limits).
   - Test: old DBs still load (column migration or default 0)
 - [x] **3. Reporter** — OVERTYPE/CUT in the summary only (live status line kept
   compact, by decision)
-- [ ] **4. Scripted verification session** (manual) — ~15 editing behaviors
-  (select-replace, cut-paste, undo chains, autocomplete accept, multi-cursor)
-  performed in a real editor; diff expected vs actual counts; record results here
+- [ ] **4. Scripted verification session** (manual, **deferred**) — ~15 editing
+  behaviors (select-replace, cut-paste, undo chains, autocomplete accept,
+  multi-cursor) performed in a real editor; diff expected vs actual counts; record
+  results here. Code is complete and fully unit-tested (123 passing); this is the
+  one step requiring a live keyboard hook, so it's pending a hands-on session
+  (checklist ready in `tests/v2.5_manual_verification.md`).
 
 ## Known Limits (accepted blind spots)
 The hook sees keystrokes, not text or selection state. Reading actual text would
