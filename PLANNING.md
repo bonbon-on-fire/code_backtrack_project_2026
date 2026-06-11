@@ -65,7 +65,7 @@ still recorded (cheap, already collected) but become a secondary breakdown.
 | 1 | **v1 — Counter**: console app, global hotkey (Ctrl+Alt+B) starts/stops a session, count correction keys + total keystrokes, summary on stop | ☑ |
 | 2 | **v2 — Insight**: SQLite session history, correction ratio, per-app filtering/breakdown (active-window process name) | ☑ |
 | 3 | **v3 — Meaningful metric**: characters added vs. characters deleted, and the delete % — one number that says "how much of what I type do I end up removing" | ☑ |
-| 4 | **v4 — Daily driver**: system-tray icon with live count + start/stop menu, so the tracker runs alongside work without a terminal. (Trend charts and burst detection were considered and dropped — not wanted.) | ☐ |
+| 4 | **v4 — Daily driver**: system-tray icon with live count + start/stop menu, so the tracker runs alongside work without a terminal. (Trend charts and burst detection were considered and dropped — not wanted.) | ☑ |
 
 ## v1 Build Order
 - [x] **1. Scaffolding** — `pyproject.toml` (Python 3.12+, pynput), package layout under
@@ -248,15 +248,15 @@ console `run` untouched and adds a separate `tray` subcommand. New deps:
   stats (typed / delete % / duration). Stop shows the summary as a notification,
   then discards. Quit stops the hook and the icon cleanly.
 
-- [ ] **1. Tray tooltip/stat formatter** (`reporter.py`) — pure
+- [x] **1. Tray tooltip/stat formatter** (`reporter.py`) — pure
   `format_tray_tooltip(stats, recording)` → one short line.
   - Test: idle → "idle" text, no counts
   - Test: recording → includes typed, delete %, duration
   - Test: zero-activity recording → sane (0 / 0%), no crash
-- [ ] **2. Runtime icon images** (`tray.py`) — Pillow-drawn idle/recording
+- [x] **2. Runtime icon images** (`tray.py`) — Pillow-drawn idle/recording
   circles; no asset files shipped. Add `pystray`/`Pillow` to `pyproject.toml`.
   - Test: returns an image of the expected size/mode for each state
-- [ ] **3. Tray controller** (`tray.py`) — thin class binding `App` (with
+- [x] **3. Tray controller** (`tray.py`) — thin class binding `App` (with
   `storage=None`) to an injected icon: builds the menu (Start/Stop, stat lines,
   Quit), toggles under a `threading.Lock`, refreshes tooltip/menu from app state.
   The icon is injected so the logic is testable with a fake.
@@ -264,15 +264,17 @@ console `run` untouched and adds a separate `tray` subcommand. New deps:
   - Test: the menu toggle action calls the app toggle
   - Test: tooltip / stat lines reflect current app stats (fake icon)
   - Test: stop produces the summary text used for the notification
-- [ ] **4. Wire-up + `tray` subcommand** (`__main__.py`, `tray.py`) — `python -m
+- [x] **4. Wire-up + `tray` subcommand** (`__main__.py`, `tray.py`) — `python -m
   code_backtrack tray` starts the pynput listener, an updater daemon (~1s), and
   `icon.run()` on the main thread; Quit / Ctrl+C stop both. Console `run` and the
   bare invocation are unchanged.
   - Test: parser routes `tray` to the tray entry (entry mocked, no real icon)
   - Test: bare invocation + `run`/`history`/etc. still behave as before
-- [ ] **5. End-to-end smoke test** (manual) — launch `tray`; icon appears idle;
+- [x] **5. End-to-end smoke test** (manual) — launch `tray`; icon appears idle;
   hotkey + menu both start/stop; tooltip updates live; recording icon turns red;
   stop shows the summary notification; Quit exits cleanly.
+  (passed 2026-06-10: tray icon shows live `REC … | typed … | del %` tooltip,
+  toggling works, idle/recording states confirmed.)
 
 ## Known Limits (accepted blind spots)
 The hook sees keystrokes, not text or selection state. Reading actual text would
