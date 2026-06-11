@@ -44,23 +44,28 @@ corrections happen while coding, and over time, whether that rate changes.
 - **Reporter**: live console line while running; full summary on Ctrl+C.
 
 ### Keys tracked
-| Key | Meaning |
-|-----|---------|
-| Backspace | single-char correction |
-| Ctrl+Backspace | word-level correction |
-| Delete | forward delete |
-| Ctrl+Delete | forward word delete |
-| Ctrl+Z | undo (heaviest correction) — counted as its own category |
-| Overtype | printable key while a keyboard-made selection is active (v2.5) |
-| Ctrl+X | cut — may be deletion or move; own category (v2.5) |
-| (all other keys) | counted only toward total, never identified |
+| Key | Meaning | Chars (v3) |
+|-----|---------|------------|
+| Printable char (letter/digit/symbol) | a typed character — **added** | +1 added |
+| Backspace | single-char correction | −1 deleted |
+| Delete | forward delete | −1 deleted |
+| Ctrl+Backspace | word-level correction (size unknown) | −5 deleted (estimate) |
+| Ctrl+Delete | forward word delete (size unknown) | −5 deleted (estimate) |
+| Ctrl+Z | undo (heaviest correction) — own category | not in char totals (no sane estimate) |
+| Overtype | printable key while a keyboard-made selection is active (v2.5) | not in char totals (selection size unknown) |
+| Ctrl+X | cut — may be deletion or move; own category (v2.5) | not in char totals (selection size unknown) |
+| Space / Enter / Tab / nav / function keys | counted only toward total, never identified | not added (by decision) |
+
+In v3 the character model is the headline; the per-key category counts above are
+still recorded (cheap, already collected) but become a secondary breakdown.
 
 ## Milestones
 | # | Milestone | Status |
 |---|-----------|--------|
 | 1 | **v1 — Counter**: console app, global hotkey (Ctrl+Alt+B) starts/stops a session, count correction keys + total keystrokes, summary on stop | ☑ |
 | 2 | **v2 — Insight**: SQLite session history, correction ratio, per-app filtering/breakdown (active-window process name) | ☑ |
-| 3 | **v3 — Daily driver**: tray icon with live count, trend charts, burst detection (N+ backspaces in a row = rewrite vs typo) | ☐ |
+| 3 | **v3 — Meaningful metric**: characters added vs. characters deleted, and the delete % — one number that says "how much of what I type do I end up removing" | ☐ |
+| 4 | **v4 — Daily driver**: tray icon with live count, trend charts, burst detection (N+ backspaces in a row = rewrite vs typo) | ☐ |
 
 ## v1 Build Order
 - [x] **1. Scaffolding** — `pyproject.toml` (Python 3.12+, pynput), package layout under
@@ -178,6 +183,56 @@ no mouse hook — see Known Limits).
   one step requiring a live keyboard hook, so it's pending a hands-on session
   (checklist ready in `tests/v2.5_manual_verification.md`).
 
+## v3 Build Order — meaningful metric (chars added vs deleted)
+The pile of per-category counts never resolved into one readable number. v3 adds a
+**character model**: how many characters were typed (added) vs. removed (deleted),
+and the **delete %** (`deleted ÷ added`). It stays on the counter side of the
+privacy line — a single Backspace/Delete is provably one character, and word
+deletes use a fixed estimate, so no text or selection is ever read.
+
+- Char accounting:
+  - `chars_added` = printable character keys only (letters, digits, symbols).
+    **Space, Enter, and Tab do NOT count as added** (by decision — they're
+    structure, not content; keeps the ratio about typed text).
+  - `chars_deleted` = Backspace + Delete (1 each, repeats included) +
+    `(Ctrl+Backspace + Ctrl+Delete) × WORD_DELETE_CHARS`.
+  - `WORD_DELETE_CHARS = 5` — average word length. Word deletes are rare in normal
+    use and skew long when used, so this slightly under-counts, but the low
+    frequency makes the error negligible. Single named constant, easy to tune.
+  - Undo / Overtype / Cut are **excluded** from char totals (no defensible size)
+    but stay as event counts in the secondary breakdown.
+  - `delete_pct = chars_deleted ÷ chars_added` (0 when nothing typed, no crash);
+    `net_chars = chars_added − chars_deleted`.
+
+- [ ] **1. New `CHAR` category** (`listener.py` + `counter.py`) — a printable
+  character key (not consumed as overtype/hotkey) classifies as `Category.CHAR`
+  instead of folding into `OTHER`. Space/Enter/Tab stay `OTHER`. Total keystrokes
+  and the existing correction ratio are unchanged (CHAR just splits out of OTHER).
+  - Test: a letter/digit/symbol → `CHAR`; Space/Enter/Tab → `OTHER`
+  - Test: printable key during a live selection still → `OVERTYPE`, not `CHAR`
+  - Test: Ctrl/Alt + letter (shortcuts) → not `CHAR`
+  - Test: all v2.5 classifier tests still pass (regression guard)
+- [ ] **2. Char stats** (`counter.py`) — `WORD_DELETE_CHARS` constant; derive
+  `chars_added`, `chars_deleted`, `delete_pct`, `net_chars` in `compute_stats`.
+  - Test: typed N printable, M backspaces → added=N, deleted=M, pct=M/N
+  - Test: each Ctrl+Backspace / Ctrl+Delete adds 5 to deleted
+  - Test: Undo/Overtype/Cut do **not** move the char totals
+  - Test: zero typed → delete_pct = 0, no ZeroDivisionError
+- [ ] **3. Storage** (`storage.py`) — persist the `char` count column (added chars);
+  deleted/pct/net are derived on read from existing columns, so only one new
+  column. Old DBs backfilled via `ALTER TABLE ... DEFAULT 0` (same pattern as v2.5).
+  - Test: save→load round-trip preserves the char count
+  - Test: old DB without the column still loads (migration / default 0)
+- [ ] **4. Reporter** (`reporter.py`) — headline block leads with
+  `typed / deleted / delete % / net`; the per-category tallies move below as a
+  compact breakdown. `history` shows delete % per session.
+  - Test: summary shows added, deleted, delete %, net
+  - Test: zero-activity session renders 0s / 0%, no crash
+  - Test: `history` rows include delete %
+- [ ] **5. End-to-end smoke test** (manual) — type a known string, delete part of
+  it with backspaces and one Ctrl+Backspace; confirm added/deleted/% match the
+  hand count (± the word-delete estimate).
+
 ## Known Limits (accepted blind spots)
 The hook sees keystrokes, not text or selection state. Reading actual text would
 require accessibility APIs — keylogger territory, against the privacy principle.
@@ -214,10 +269,24 @@ Invisible and accepted:
   the false-positive risk isn't worth the rare catch.
 - **v2.5 reporter**: OVERTYPE/CUT appear in the session summary only; the live status
   line stays compact with the original five categories.
+- **v3 char metric**: the headline becomes chars added vs deleted + delete %. The
+  per-category counts were technically correct but never added up to one readable
+  signal; the character view answers "how much of what I type do I delete."
+- **v3 stays a counter**: magnitudes come from counting events, not reading text —
+  single Backspace/Delete = 1 char (exact), word deletes = fixed estimate. The
+  keylogger line (read the document/clipboard) is **not** crossed. Considered and
+  rejected: even with instant-wipe, reading text trades a categorical privacy
+  guarantee for a policy one, and accessibility APIs are unreliable in the editors
+  that matter (VS Code, terminals) anyway.
+- **v3 word-delete estimate**: `WORD_DELETE_CHARS = 5` (avg word length). Used for
+  Ctrl+Backspace and Ctrl+Delete. Rare in practice; tunable single constant.
+- **v3 added = content only**: Space/Enter/Tab are NOT counted as added characters —
+  the metric is about typed *content*, and whitespace would inflate "added" and
+  deflate the delete %.
 
 ## Open Questions
-- Burst threshold (v3): how many consecutive backspaces counts as a "rewrite"?
-  Starting guess: ≥10 — tune once v2 session data exists.
+- Burst threshold (v4): how many consecutive backspaces counts as a "rewrite"?
+  Starting guess: ≥10 — tune once v3 session data exists.
 
 ## Notes
 - v1 counts everywhere; the user controls data quality by only running it while coding.
